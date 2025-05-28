@@ -1,0 +1,159 @@
+<html>
+
+<head>
+  <title>星巴克咖啡系列飲品通膨價目表</title>
+  <link rel="stylesheet" href="/stylesheets/style.css">
+</head>
+
+<body>
+  <h1>星巴克咖啡系列飲品通膨價目表</h1>
+  <p>註：本表僅有咖啡系列飲品，且不含濃縮咖啡及季節性產品</p>
+
+  <form id="drinkForm">
+    <label for="name">飲料名稱:</label>
+    <select id="name" name="name" required>
+    </select>
+
+    <label for="size">尺寸:</label>
+    <select id="size" name="size" required>
+        <option value="中杯">中杯</option>
+        <option value="大杯">大杯</option>
+        <option value="特大杯">特大杯</option>
+    </select>
+
+    <label for="price">價格:</label>
+    <input type="number" id="price" name="price" required>
+
+    <label for="time">時間:</label>
+    <input type="date" id="time" name="time" required>
+
+    <button type="button" id="submitButton">提交</button>
+  </form>
+
+  <form id="searchForm">
+    <label for="search">搜尋飲料名稱:</label>
+    <select id="search" name="search">
+    </select>
+
+    <label for="sizeSearch">搜尋尺寸:</label>
+    <select id="sizeSearch" name="sizeSearch">
+        <option value="">全部</option>
+        <option value="中杯">中杯</option>
+        <option value="大杯">大杯</option>
+        <option value="特大杯">特大杯</option>
+    </select>
+
+    <button type="button" id="searchButton">搜尋</button>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const nameSelect = document.getElementById('name');
+        const searchNameSelect = document.getElementById('search');
+
+        try {
+            const response = await fetch('/api/quotes');
+            const data = await response.json();
+
+            const uniqueNames = [...new Set(data.map(item => item.name))];
+
+            uniqueNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                nameSelect.appendChild(option);
+
+                const searchOption = document.createElement('option');
+                searchOption.value = name;
+                searchOption.textContent = name;
+                searchNameSelect.appendChild(searchOption);
+            });
+        } catch (error) {
+            console.error('無法獲取飲料名稱:', error);
+        }
+    });
+
+    document.getElementById('submitButton').addEventListener('click', async () => {
+        const name = document.getElementById('name').value;
+        const size = document.getElementById('size').value;
+        const price = document.getElementById('price').value;
+        let time = document.getElementById('time').value;
+
+        // 將時間格式從 yyyy-xx-zz 轉換為 yyyy/xx/zz
+        time = time.replace(/-/g, '/');
+
+        try {
+            const response = await fetch('/api/insert', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, price, size, time })
+            });
+
+            const message = await response.text();
+            const resultElement = document.createElement('p');
+            resultElement.textContent = message;
+            document.body.appendChild(resultElement);
+        } catch (error) {
+            console.error('提交失敗:', error);
+        }
+    });
+
+    async function fetchAndDisplayQuotes(nameFilter = '', sizeFilter = '') {
+        try {
+            const queryParams = [];
+            if (nameFilter) queryParams.push(`name=${nameFilter}`);
+            if (sizeFilter) queryParams.push(`size=${sizeFilter}`);
+            const queryString = queryParams.length ? `?${queryParams.join('&')}` : '';
+
+            const response = await fetch(`/api${queryString}`);
+            const data = await response.json();
+
+            let table = document.querySelector('table');
+            if (table) {
+                table.remove();
+            }
+
+            table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+
+            ['Name', 'Price', 'Size', 'Time'].forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+
+            table.appendChild(headerRow);
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                const { name, price, size, time } = row; // 解構資料，確保正確顯示
+
+                [name, price, size, time].forEach(cellData => {
+                    const td = document.createElement('td');
+                    td.textContent = cellData;
+                    tr.appendChild(td);
+                });
+
+                table.appendChild(tr);
+            });
+
+            document.body.appendChild(table);
+        } catch (error) {
+            console.error('無法獲取資料:', error);
+        }
+    }
+
+    document.getElementById('searchButton').addEventListener('click', () => {
+        const nameValue = document.getElementById('search').value;
+        const sizeValue = document.getElementById('sizeSearch').value;
+        fetchAndDisplayQuotes(nameValue, sizeValue);
+    });
+
+    // Fetch and display all quotes on page load
+    fetchAndDisplayQuotes();
+  </script>
+</body>
+
+</html>
